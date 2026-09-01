@@ -43,10 +43,20 @@ def decide(proposed: int, snap) -> SafetyDecision:
         return SafetyDecision("REJECT", 0, "sudden_agent_drop",
                               f"available dropped {snap.prev_available}->{avail} (>25%)")
 
-    # 3. Anomaly spike guard: something's off (dupes/out-of-order rising) -> half.
+    # 3. Anomaly spike guard: something's off (dupes/out-of-order rising) -> half,
+    #    but never above the hard overdial cap. Because rules are first-match-wins,
+    #    a match here short-circuits rule 4; and halving a huge predictive proposal
+    #    (low answer-rate estimate) is still huge, so without this clamp the anomaly
+    #    guard could approve MORE setups than the envelope allows. Clamping keeps the
+    #    guard strictly conservative and makes "predictive pacing cannot expand the
+    #    safety envelope" hold in every branch, not just the default one.
     if snap.anomaly_count_5min > ANOMALY_WINDOW_LIMIT:
-        return SafetyDecision("REDUCE", max(proposed // 2, 0), "anomaly_spike",
-                              f"{snap.anomaly_count_5min} anomalies in 5m; approving 50%")
+        current = snap.calls_dialing + snap.calls_ringing
+        cap = int(avail * MAX_OVERDIAL_RATIO)
+        approved = min(max(proposed // 2, 0), max(cap - current, 0))
+        return SafetyDecision("REDUCE", approved, "anomaly_spike",
+                              f"{snap.anomaly_count_5min} anomalies in 5m; "
+                              f"approving min(50%, overdial cap) = {approved}")
 
     # 4. Hard overdial cap: never let dialing+ringing exceed avail * ratio.
     current = snap.calls_dialing + snap.calls_ringing

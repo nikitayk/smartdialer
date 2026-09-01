@@ -1,0 +1,43 @@
+digraph SmartDialer {
+    rankdir=TB;
+    bgcolor="white";
+    nodesep=0.45; ranksep=0.55;
+    node [fontname="Helvetica", fontsize=11, style="filled,rounded", shape=box, color="#2b2b2b", penwidth=1.2];
+    edge [fontname="Helvetica", fontsize=9, color="#2b2b2b", penwidth=1.2];
+    labelloc="t";
+    fontname="Helvetica-Bold"; fontsize=15;
+    label="SmartDialer — data & control flow\npacing proposes  •  safety decides  •  only the allocator dials\n ";
+
+    Q   [label="Campaign / Borrower Queue\nborrowers.state: QUEUED → IN_FLIGHT → DONE", fillcolor="#eef2f7"];
+    P   [label="Pacing Engine\nProgressivePacer | PredictivePacer\npropose(snapshot) → int\nno allocator · no DB · no provider", fillcolor="#dbe7f3", color="#b03030", penwidth=1.8];
+    S   [label="Safety Controller\n6 ordered rules · first-match wins\nSOLE holder of the allocator", fillcolor="#f6e0c8", color="#b03030", penwidth=1.8];
+    AL  [label="Call Allocator\nreserve agent (CAS) → dial\nthe ONLY caller of the provider", fillcolor="#d7ecd9"];
+    PA  [label="Provider A\nfast / reliable", fillcolor="#e9e9e9"];
+    PB  [label="Provider B\nslow · timeouts · dup · out-of-order", fillcolor="#e9e9e9"];
+    ING [label="Event Ingestion\n(1) dedup by provider_event_id\n(2) state CAS   (3) terminal guard", fillcolor="#f3dbe7"];
+    DB  [label="SQLite — single source of truth\nWAL · busy_timeout=5000 · autocommit\nagents · borrowers · calls · processed_events\nanomaly_log · safety_decisions · metrics", shape=cylinder, fillcolor="#e7e2f3"];
+    SW  [label="Sweeper / Reconcile\none recovery path · TTL 30s · abandon 2s", fillcolor="#fbf3cf"];
+    NOTE [shape=note, fillcolor="#fdecec", color="#b03030", fontsize=9,
+          label="Structural safety boundary\nThe two red-bordered boxes are a pure function of a snapshot.\nNeither holds the allocator, so pacing physically cannot dial\nor disable safety — enforced by wiring, not by a rule."];
+
+    // vertical backbone (these edges set the ranks)
+    Q  -> P   [label="snapshot"];
+    P  -> S   [label="proposed_n"];
+    S  -> AL  [label="approved_n"];
+    AL -> PA  [label="place_call()"];
+    AL -> PB  [label="place_call()"];
+    PA -> ING [label="events"];
+    PB -> ING [label="events"];
+    ING -> DB;
+    AL -> DB  [style=dashed, label="reserve / init"];
+    S  -> DB  [style=dashed, label="log decision"];
+    DB -> SW  [style=dashed, dir=both, label="scan / reclaim"];
+    DB -> Q   [style=dashed, label="requeue", constraint=false];
+
+    // forbidden edge — drawn, but does not affect ranking
+    P -> AL [label="  ✕  no path (enforced by wiring)  ", color="#c00000", style=bold,
+             dir=none, constraint=false, fontcolor="#c00000", penwidth=2.2];
+
+    { rank=same; S; NOTE; }
+    NOTE -> S [style=invis];
+}

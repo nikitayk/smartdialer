@@ -1,0 +1,41 @@
+digraph AgentSM {
+    rankdir=LR;
+    bgcolor="white";
+    nodesep=0.4; ranksep=0.7;
+    labelloc="t"; fontname="Helvetica-Bold"; fontsize=15;
+    label="Agent state machine  (smartdialer/agent.py)\nevery edge is a guarded CAS: UPDATE … WHERE state = <expected>\n ";
+    node [fontname="Helvetica", fontsize=11, style="filled", shape=box, style="filled,rounded", color="#2b2b2b"];
+    edge [fontname="Helvetica", fontsize=9, color="#2b2b2b"];
+
+    start [shape=point, width=0.12, color="#2b2b2b"];
+    AVAILABLE [fillcolor="#d7ecd9"];
+    RESERVED  [fillcolor="#dbe7f3"];
+    DIALING   [fillcolor="#dbe7f3"];
+    CONNECTED [fillcolor="#f6e0c8"];
+    WRAP_UP   [fillcolor="#eef2f7"];
+    PAUSED    [fillcolor="#eef2f7"];
+    OFFLINE   [fillcolor="#f3dbe7"];
+
+    start -> AVAILABLE;
+    AVAILABLE -> RESERVED  [label="try_reserve()\natomic CAS", color="#1a6b1a", penwidth=1.6];
+    RESERVED  -> DIALING   [label="call initiated"];
+    RESERVED  -> AVAILABLE  [label="released\n(sweeper / cancel)", style=dashed];
+    DIALING   -> CONNECTED  [label="answered + bridged"];
+    DIALING   -> AVAILABLE  [label="dial failed", style=dashed];
+    CONNECTED -> WRAP_UP    [label="call ended"];
+    WRAP_UP   -> AVAILABLE  [label="wrap-up done"];
+    AVAILABLE -> PAUSED     [label="pause"];
+    PAUSED    -> AVAILABLE   [label="resume"];
+
+    // OFFLINE is a wildcard reachable from ANY non-offline state; each origin
+    // carries a distinct side effect (go_offline() return tag).
+    AVAILABLE -> OFFLINE [label="disconnect\n→ no_resource_held", color="#8a8a8a", fontcolor="#8a8a8a"];
+    PAUSED    -> OFFLINE [label="disconnect\n→ no_resource_held", color="#8a8a8a", fontcolor="#8a8a8a"];
+    WRAP_UP   -> OFFLINE [label="disconnect\n→ no_resource_held", color="#8a8a8a", fontcolor="#8a8a8a"];
+    RESERVED  -> OFFLINE [label="disconnect\n→ release_reservation\n(requeue borrower)", color="#b06a00", fontcolor="#b06a00"];
+    DIALING   -> OFFLINE [label="disconnect\n→ cancel_dial\n(fail call, requeue)", color="#b06a00", fontcolor="#b06a00"];
+    CONNECTED -> OFFLINE [label="disconnect\n→ forced_abandonment\n(COMPLIANCE case)", color="#c00000", fontcolor="#c00000", penwidth=1.8];
+    OFFLINE   -> AVAILABLE [label="reconnect", style=dashed];
+
+    { rank=same; RESERVED; DIALING; }
+}

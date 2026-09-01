@@ -136,3 +136,19 @@ I did not implement the log blindly. Four deliberate, flagged changes:
    exists whose rationale is "V1's writer bottleneck at 1,000 agents," that
    rationale needs updating to match this measurement, or the two docs will
    contradict each other.
+
+5. **Anomaly-spike guard clamped to the overdial cap (found and fixed).** The
+   safety rules are first-match-wins, so a match at rule 3 (`anomaly_spike`)
+   short-circuits rule 4 (`hard_overdial_cap`). The original rule 3 returned
+   `proposed // 2`; but halving a *huge* predictive proposal (low estimated
+   answer rate) is still huge, so during an anomaly spike the guard could approve
+   more setups than `available * 1.5` — i.e. the guard meant to be conservative
+   could breach the overdial envelope, and the claimed invariant "predictive
+   pacing cannot expand the safety envelope" did not strictly hold in that branch.
+   Fix (`safety.py`, rule 3): also clamp to `cap - in_setup`, so the anomaly guard
+   can only ever be *more* conservative. Measured effect on a seeded flaky-provider
+   stress run (`--scenario D --provider B`): forced abandonments dropped 163 → 38.
+   Pinned by `tests/test_invariants.py::test_anomaly_spike_clamped_to_cap_regression`
+   and the property test `::test_predictive_never_exceeds_overdial_cap_across_rates`.
+   The existing `test_rule3_anomaly_spike_reduce_half` still passes unchanged (its
+   proposal was already under the cap).

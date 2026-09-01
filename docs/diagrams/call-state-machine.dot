@@ -1,0 +1,38 @@
+digraph CallSM {
+    rankdir=LR;
+    bgcolor="white";
+    nodesep=0.4; ranksep=0.7;
+    labelloc="t"; fontname="Helvetica-Bold"; fontsize=15;
+    label="Call state machine  (smartdialer/call.py)\nblack = worker-driven CAS   ·   blue = provider event (apply_event)   ·   double border = terminal (immutable)\n ";
+    node [fontname="Helvetica", fontsize=11, style="filled,rounded", shape=box, color="#2b2b2b"];
+    edge [fontname="Helvetica", fontsize=9, color="#2b2b2b"];
+
+    start [shape=point, width=0.12, color="#2b2b2b"];
+    QUEUED    [fillcolor="#eef2f7"];
+    RESERVED  [fillcolor="#dbe7f3"];
+    INITIATED [fillcolor="#dbe7f3"];
+    RINGING   [fillcolor="#dbe7f3"];
+    ANSWERED  [fillcolor="#f6e0c8"];
+    CONNECTED [fillcolor="#d7ecd9"];
+    COMPLETED [fillcolor="#cfe8cf", shape=box, peripheries=2];
+    FAILED    [fillcolor="#f3d0d0", shape=box, peripheries=2];
+    CANCELLED [fillcolor="#e7e2f3", shape=box, peripheries=2];
+
+    start -> QUEUED;
+    QUEUED    -> RESERVED  [label="reserve to dial"];
+    RESERVED  -> INITIATED [label="dial sent"];
+    INITIATED -> RINGING   [label="RINGING", color="#12559c", fontcolor="#12559c"];
+    RINGING   -> ANSWERED  [label="ANSWERED", color="#12559c", fontcolor="#12559c"];
+    ANSWERED  -> CONNECTED [label="bridge_answered()\n(grab agent)"];
+    CONNECTED -> COMPLETED [label="COMPLETED", color="#12559c", fontcolor="#12559c"];
+
+    INITIATED -> FAILED [label="FAILED / no-answer", color="#12559c", fontcolor="#12559c"];
+    RINGING   -> FAILED [label="FAILED / no-answer", color="#12559c", fontcolor="#12559c"];
+    ANSWERED  -> FAILED [label="abandoned\n(no free agent)", color="#c00000", fontcolor="#c00000", penwidth=1.6];
+    CONNECTED -> FAILED [label="dropped", color="#12559c", fontcolor="#12559c"];
+
+    QUEUED   -> CANCELLED [label="agent gone\nbefore dial", style=dashed];
+    RESERVED -> CANCELLED [label="agent gone\nbefore dial", style=dashed];
+
+    { rank=same; COMPLETED; FAILED; }
+}
