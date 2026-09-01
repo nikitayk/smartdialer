@@ -1,3 +1,4 @@
+
 # Architecture
 
 ## Pipeline
@@ -8,12 +9,12 @@ provider. Nothing upstream of the safety controller can place a call.
 
 ```mermaid
 flowchart LR
-    C[Campaign / borrower queue] --> P[Pacing engine\nProgressive | Predictive]
-    P -- "propose(snapshot) -> int" --> S[Safety controller\n6 ordered rules]
+    C[Campaign / borrower queue] --> P["Pacing engine<br/>Progressive | Predictive"]
+    P -- "propose(snapshot) -> int" --> S[Safety controller<br/>6 ordered rules]
     S -- "approved_n" --> AL[Call allocator]
-    AL --> PR[Telecom provider\nA or B]
-    PR -- events --> ING[Event ingestion\ndedup + CAS]
-    ING --> DB[(SQLite\nsingle source of truth)]
+    AL --> PR[Telecom provider<br/>A or B]
+    PR -- events --> ING[Event ingestion<br/>dedup + CAS]
+    ING --> DB[(SQLite<br/>single source of truth)]
     S -. logs .-> DB
     subgraph guard [structural boundary]
         P
