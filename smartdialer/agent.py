@@ -122,3 +122,20 @@ def go_offline(conn, agent_id: str, worker_id: str = "system") -> str:
 
 def reconnect(conn, agent_id: str) -> bool:
     return transition(conn, agent_id, OFFLINE, AVAILABLE)
+
+
+def release_to_available(conn, agent_id: str) -> bool:
+    """Release an agent that's holding a call which just got reclaimed. The
+    agent may be in RESERVED (reserved, not yet dialing) or DIALING (dial sent,
+    call now failed). Guarded so we only move it from those two states."""
+    if agent_id is None:
+        return False
+    for frm in (RESERVED, DIALING):
+        cur = conn.execute(
+            "UPDATE agents SET state=?, reserved_by=NULL, reserved_at=NULL, "
+            "updated_at=? WHERE id=? AND state=?",
+            (AVAILABLE, now(), agent_id, frm),
+        )
+        if cur.rowcount == 1:
+            return True
+    return False

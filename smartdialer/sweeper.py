@@ -58,7 +58,7 @@ def sweep_stale_calls(conn) -> int:
     mid-dial, provider went silent). Guarded so two sweepers don't both act."""
     cutoff = now() - RESERVED_TTL
     rows = conn.execute(
-        "SELECT id, borrower_id FROM calls WHERE state IN (?,?,?) AND updated_at < ?",
+        "SELECT id, borrower_id, agent_id FROM calls WHERE state IN (?,?,?) AND updated_at < ?",
         (C.RESERVED, C.INITIATED, C.RINGING, cutoff),
     ).fetchall()
     swept = 0
@@ -70,6 +70,7 @@ def sweep_stale_calls(conn) -> int:
         )
         if cur.rowcount == 1:
             B.requeue(conn, r["borrower_id"])
+            A.release_to_available(conn, r["agent_id"])   # free the stranded agent
             swept += 1
     return swept
 
