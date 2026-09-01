@@ -44,11 +44,13 @@ approved call counts and the safety action for every tick.
 | State snapshot         | `smartdialer/snapshot.py` |
 | Mock providers A & B   | `smartdialer/providers/__init__.py` |
 | Simulator (scenarios A-D, injectors) | `simulate.py` |
+| Load test               | `load_test.py` |
+| Scale write-up (measured) | `docs/SCALE.md` |
 | Five failure-case tests | `tests/test_failure_cases.py` |
 | Multi-worker stress test | `tests/test_stress.py` |
 | Tests                  | `tests/`, run via `run_tests.py` |
 
-(Load test and the architecture doc land in the last phases.)
+(The architecture doc lands in the final phase.)
 
 ## Design notes so far
 
