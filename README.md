@@ -22,10 +22,15 @@ pytest -q
 | Borrower queue         | `smartdialer/borrower.py` |
 | Sweeper / reconciler   | `smartdialer/sweeper.py` |
 | DB schema (source of truth) | `smartdialer/db.py` |
+| Safety Controller (6 ordered rules) | `smartdialer/safety.py` |
+| Call Allocator         | `smartdialer/allocator.py` |
+| Pacing engines (progressive live, predictive in Phase 4) | `smartdialer/pacing.py` |
+| State snapshot         | `smartdialer/snapshot.py` |
+| Mock providers A & B   | `smartdialer/providers/__init__.py` |
 | Tests                  | `tests/`, run via `run_tests.py` |
 
-(Safety controller, providers, pacing engines, simulator, load test and the
-architecture doc land in later phases.)
+(Predictive tuning, simulator, load test and the architecture doc land in
+later phases.)
 
 ## Design notes so far
 
