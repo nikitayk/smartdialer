@@ -23,6 +23,7 @@ class Snapshot:
     provider_degraded: bool
     predicted_answer_rate: float
     agents_expected_free_soon: int
+    observed_attempts: int = 10 ** 9   # default: assume warmed up (unit tests)
 
 
 def _count_agents(conn, state):
@@ -36,7 +37,7 @@ def _count_calls(conn, states):
 
 def build_snapshot(conn, provider, prev_available, *,
                    predicted_answer_rate=0.4, agents_expected_free_soon=0,
-                   now_ts=None):
+                   observed_attempts=10 ** 9, now_ts=None):
     t = now() if now_ts is None else now_ts
     anomalies = conn.execute(
         "SELECT COUNT(*) n FROM anomaly_log WHERE created_at > ?", (t - 300,)
@@ -52,4 +53,5 @@ def build_snapshot(conn, provider, prev_available, *,
         provider_degraded=provider.is_degraded(now=t) if provider else False,
         predicted_answer_rate=predicted_answer_rate,
         agents_expected_free_soon=agents_expected_free_soon,
+        observed_attempts=observed_attempts,
     )

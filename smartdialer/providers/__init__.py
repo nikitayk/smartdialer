@@ -12,7 +12,6 @@ rather than hidden.
 """
 
 import random
-from collections import deque
 from dataclasses import dataclass
 
 from ..clock import now as _now
@@ -26,7 +25,10 @@ class ProviderEvent:
     ts: float
 
 
-# Health thresholds (decision log, failure case #2).
+# Health thresholds (decision log, failure case #2): the breaker trips on
+# consecutive setup failures/timeouts, so a real outage trips it in a handful
+# of calls while normal high-volume traffic with the occasional failure does
+# not (any success resets the counter). Stale counters expire after the window.
 DEGRADE_FAILS = 5
 DEGRADE_WINDOW = 10.0
 
@@ -43,7 +45,8 @@ class MockProvider:
                          failure_rate=failure_rate, dup_rate=dup_rate, ooo_rate=ooo_rate)
         self._pending = []          # scheduled (not yet matured) events, in emit order
         self._eid = 0
-        self._fail_ts = deque()     # timestamps of recent setup failures
+        self._consec_fails = 0
+        self._last_fail_ts = None
 
     # -- helpers ----------------------------------------------------------
     def _next_eid(self):
@@ -64,10 +67,12 @@ class MockProvider:
                 self._pending.append(ProviderEvent(ev.call_id, ev.event_type,
                                                    ev.event_id, ev.ts))
 
-    def _record_failure(self, ts):
-        self._fail_ts.append(ts)
-        while self._fail_ts and ts - self._fail_ts[0] > DEGRADE_WINDOW:
-            self._fail_ts.popleft()
+    def _record_setup_failure(self, ts):
+        self._consec_fails += 1
+        self._last_fail_ts = ts
+
+    def _record_setup_success(self):
+        self._consec_fails = 0
 
     # -- interface --------------------------------------------------------
     def place_call(self, call_id, number, now=None):
@@ -75,9 +80,11 @@ class MockProvider:
         if self.force_outage or self._rng.random() < self._cfg["failure_rate"]:
             fail_ts = t + self._latency()
             self._emit(ProviderEvent(call_id, "FAILED", self._next_eid(), fail_ts))
-            self._record_failure(fail_ts)
+            self._record_setup_failure(fail_ts)
             return
 
+        # the call reached the network (a no-answer is still a healthy setup)
+        self._record_setup_success()
         ring = ProviderEvent(call_id, "RINGING", self._next_eid(), t + self._latency() * 0.4)
         ans_ts = t + self._latency()
         if self._rng.random() < self.answer_rate:
@@ -111,9 +118,9 @@ class MockProvider:
 
     def is_degraded(self, now=None):
         t = _now() if now is None else now
-        while self._fail_ts and t - self._fail_ts[0] > DEGRADE_WINDOW:
-            self._fail_ts.popleft()
-        return len(self._fail_ts) >= DEGRADE_FAILS
+        if self._last_fail_ts is not None and t - self._last_fail_ts > DEGRADE_WINDOW:
+            self._consec_fails = 0          # stale failures; treat as recovered
+        return self._consec_fails >= DEGRADE_FAILS
 
 
 def provider_a(seed=1, answer_rate=0.4):

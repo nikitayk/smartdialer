@@ -83,6 +83,29 @@ def test_case3_sudden_agent_drop_is_immediate(conn):
     assert d.action == "REJECT" and d.rule_triggered == "sudden_agent_drop"
 
 
+def test_case3_connected_agent_disconnect_forces_abandonment(conn):
+    """A drop that hits an agent mid-call is the compliance case: the live call
+    is force-failed and counted as forced_abandonment, not left dangling."""
+    from smartdialer import reconcile
+    A.create_agent(conn, "a0", state=A.CONNECTED)
+    B.add_borrower(conn, "b0", "555")
+    C.create_call(conn, "c0", "b0", agent_id="a0")
+    # drive the call to CONNECTED to mirror a live conversation
+    for frm, to in [(C.QUEUED, C.RESERVED), (C.RESERVED, C.INITIATED)]:
+        C.internal_transition(conn, "c0", frm, to)
+    C.apply_event(conn, "c0", "RINGING", "e0")
+    C.apply_event(conn, "c0", "ANSWERED", "e1")
+    C.internal_transition(conn, "c0", C.ANSWERED, C.CONNECTED)
+
+    tag = reconcile.agent_offline(conn, "a0")
+    assert tag == "forced_abandonment"
+    assert A.get_state(conn, "a0") == A.OFFLINE
+    assert C.get_state(conn, "c0") == C.FAILED
+    m = conn.execute("SELECT value FROM metrics WHERE name=?",
+                     ("forced_abandonment",)).fetchone()
+    assert m["value"] == 1
+
+
 def test_case4_duplicate_events_single_transition(conn):
     """Same provider event id delivered three times -> one transition, two logged."""
     B.add_borrower(conn, "b0", "555")
