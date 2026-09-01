@@ -27,6 +27,8 @@ pytest -q
 | Pacing engines (progressive live, predictive in Phase 4) | `smartdialer/pacing.py` |
 | State snapshot         | `smartdialer/snapshot.py` |
 | Mock providers A & B   | `smartdialer/providers/__init__.py` |
+| Five failure-case tests | `tests/test_failure_cases.py` |
+| Multi-worker stress test | `tests/test_stress.py` |
 | Tests                  | `tests/`, run via `run_tests.py` |
 
 (Predictive tuning, simulator, load test and the architecture doc land in
